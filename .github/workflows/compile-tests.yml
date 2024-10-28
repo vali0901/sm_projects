@@ -1,0 +1,40 @@
+name: Compilation Tests
+
+on:
+  push:
+    branches: ["*"]  # Runs on pushes to any branch
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install additional compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ mpich  # Installs g++ and mpic++
+
+      - name: mpi
+        working-directory: ./mpi
+        run: make
+
+      - name: pthreads
+        working-directory: ./pthreads
+        run: make
+
+      - name: openmp
+        working-directory: ./pthreads
+        run: make
+
+      - name: hybrid_mpi_pthreads
+        working-directory: ./hybrid_mpi_pthreads
+        run: make
+
+      - name: hybrid_mpi_openmp
+        working-directory: ./hybrid_mpi_openmp
+        run: make
+
+      # Add more directories as needed
