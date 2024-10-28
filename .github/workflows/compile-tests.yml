@@ -2,7 +2,7 @@ name: Compilation Tests
 
 on:
   push:
-    branches: ["*"]  # Runs on pushes to any branch
+    branches: ["*"]
 
 jobs:
   compile:
@@ -37,4 +37,3 @@ jobs:
         working-directory: ./hybrid_mpi_openmp
         run: make
 
-      # Add more directories as needed
