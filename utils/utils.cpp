@@ -92,7 +92,7 @@ float error_RIN(float *x, float *y, int N) {
     return relative_norm / norm;
 }
 
-void simple_jacobi(struct system *sys, double tol) {
+int simple_jacobi(struct system *sys, double tol) {
     int **A = sys->A;
     int *b = sys->b;
     float *x = sys->x;
@@ -100,6 +100,7 @@ void simple_jacobi(struct system *sys, double tol) {
     int max_iter = N * 100;
 
     float *x_new = new float[N];
+    int needed_iter = max_iter;
 
     for (int iter = 0; iter < max_iter; ++iter) {
         for (int i = 0; i < N; ++i) {
@@ -113,16 +114,18 @@ void simple_jacobi(struct system *sys, double tol) {
             x_new[i] /= A[i][i];
         }
 
-        memcpy(x, x_new, N * sizeof(int));
-
         /* Need to choose what error funcion will we use */
-
         double error = error_MSE(x, x_new, N);
         // double error = error_RIN(x, x_new, N);
 
-        if (error < tol)
+        memcpy(x, x_new, N * sizeof(int));
+
+        if (error < tol) {
+            needed_iter = iter;
             break;
+        }
     }
 
     delete[] x_new;
+    return needed_iter;
 }
