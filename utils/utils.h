@@ -4,7 +4,7 @@
 struct system {
     int **A;
     int *b;
-    int *x;
+    float *x;
     int N;
 
     system(int N);
