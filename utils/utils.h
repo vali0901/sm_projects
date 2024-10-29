@@ -38,3 +38,5 @@ private:
     input_type type;
     struct system **systems;
 };
+
+void simple_jacobi(struct system *sys, double tol);

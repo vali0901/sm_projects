@@ -32,7 +32,7 @@ void system::fill_data() {
     for (int i = 0; i < N; ++i) {
         int sum = 0;
         for (int j = 0; j < N; ++j) {
-            sum += A[i][j];
+            sum += abs(A[i][j]);
         }
         A[i][i] = sum;
     }
@@ -92,11 +92,14 @@ float error_RIN(float *x, float *y, int N) {
     return relative_norm / norm;
 }
 
-void simple_jacobi(int **A, int *b, float *x, int N, int max_iter, double tol) {
+void simple_jacobi(struct system *sys, double tol) {
+    int **A = sys->A;
+    int *b = sys->b;
+    float *x = sys->x;
+    int N = sys->N;
+    int max_iter = N * 100;
+
     float *x_new = new float[N];
-    for (int i = 0; i < N; ++i) {
-        x[i] = 0;
-    }
 
     for (int iter = 0; iter < max_iter; ++iter) {
         for (int i = 0; i < N; ++i) {
