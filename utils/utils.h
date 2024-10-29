@@ -1,5 +1,7 @@
 #pragma once
 #include <stdlib.h>
+#include <string.h>
+#include <iostream>
 
 struct system {
     int **A;
@@ -8,7 +10,7 @@ struct system {
     int N;
 
     system(int N);
-
+    void print();
     ~system();
 
 private:

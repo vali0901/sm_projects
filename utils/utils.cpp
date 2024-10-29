@@ -1,5 +1,5 @@
 #include "utils.h"
-#include <string.h>
+
 
 system::system(int N) : N(N) {
     A = new int*[N];
@@ -18,6 +18,24 @@ system::~system() {
     delete[] A;
     delete[] b;
     delete[] x;
+}
+
+void system::print() {
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j)
+            std::cout << A[i][j] << " ";
+        std::cout << '\n';
+    }
+
+    for (int i = 0; i < N; ++i)
+        std::cout << x[i] << " ";
+
+    std::cout << '\n';
+
+    for (int i = 0; i < N; ++i)
+        std::cout << b[i] << " ";
+
+    std::cout << '\n';
 }
 
 void system::fill_data() {
