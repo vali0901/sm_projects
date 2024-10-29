@@ -1,6 +1,7 @@
 CXX = mpicxx
 CXXFLAGS = -Wall -Wextra
 LIBS = -lmpi
+INCLUDE = -I../utils
 
 SRC = $(wildcard *.cpp ../utils/*.cpp)
 OBJ = $(SRC:.cpp=.o)
@@ -14,7 +15,7 @@ $(TARGET): $(OBJ)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LIBS)
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(INCLUDE) $(CXXFLAGS) -c $< -o $@
 
 run: $(TARGET)
 	mpiexec -n $(NNODES) $(TARGET)
