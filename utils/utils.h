@@ -2,10 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <bits/stdc++.h>
 
 struct system {
-    int **A;
-    int *b;
+    float **A;
+    float *b;
     float *x;
     int N;
 

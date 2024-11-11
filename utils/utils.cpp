@@ -2,11 +2,11 @@
 
 
 system::system(int N) : N(N) {
-    A = new int*[N];
+    A = new float*[N];
     for (int i = 0; i < N; ++i) {
-        A[i] = new int[N];
+        A[i] = new float[N];
     }
-    b = new int[N];
+    b = new float[N];
     x = new float[N];
     fill_data();
 }
@@ -39,11 +39,14 @@ void system::print() {
 }
 
 void system::fill_data() {
+    std::uniform_real_distribution<float> distribution(-25.0, 25.0);
+    std::default_random_engine generator;
+
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            A[i][j] = rand() % 51 - 25;
+            A[i][j] = distribution(generator);
         }
-        b[i] = rand() % 101 - 50;
+        b[i] = distribution(generator);
         x[i] = 0;
     }
 
@@ -111,8 +114,8 @@ float error_RIN(float *x, float *y, int N) {
 }
 
 int simple_jacobi(struct system *sys, double tol) {
-    int **A = sys->A;
-    int *b = sys->b;
+    float **A = sys->A;
+    float *b = sys->b;
     float *x = sys->x;
     int N = sys->N;
     int max_iter = N * 100;
