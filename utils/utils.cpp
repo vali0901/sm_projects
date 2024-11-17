@@ -67,33 +67,30 @@ input_gen::input_gen(int seed, input_type type) : seed(seed), type(type) {
             no_systems = 1;
             system_size = 10;
 
-            systems = new struct system*[1];
             break;
         case SMALL_SMALL:
             no_systems = 100;
             system_size = 100;
 
-            systems = new struct system*[100];
             break;
         case SMALL_LARGE:
             no_systems = 100;
             system_size = 1000;
 
-            systems = new struct system*[100];
             break;
         case LARGE_SMALL:
             no_systems = 1000;
             system_size = 100;
 
-            systems = new struct system*[1000];
             break;
         case LARGE_LARGE:
             no_systems = 1000;
             system_size = 1000;
 
-            systems = new struct system*[1000];
             break;
     }
+
+    systems = new struct system*[no_systems];
     for (int i = 0; i < no_systems; i++)
         systems[i] = new struct system(system_size);
 }
