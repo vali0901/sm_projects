@@ -44,3 +44,4 @@ private:
 };
 
 int simple_jacobi(struct system *sys, double tol);
+float error_MSE(float *x, float *y, int N);
