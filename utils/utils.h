@@ -35,6 +35,7 @@ struct input_gen {
 
     input_gen(int seed, input_type type);
     struct system **get_input();
+    ~input_gen();
 
 private:
     int seed;

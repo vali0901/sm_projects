@@ -85,6 +85,10 @@ input_gen::input_gen(int seed, input_type type) : seed(seed), type(type) {
     }
 }
 
+input_gen::~input_gen() {
+    // TODO
+}
+
 struct system **input_gen::get_input() {
     return systems;
 }
