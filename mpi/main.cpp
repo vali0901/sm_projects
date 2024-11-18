@@ -171,7 +171,7 @@ void solve_system_task(const System_solver_task &task) {
             // std::cout << "[" << rank << " worker] " << "before sending the task\n";
             send_equation_task(RANK_ROOT, equation_task, ADD_TASK_TO_POOL);
             // std::cout << "[" << rank << " worker] " << "has sent a task\n";
-
+            delete equation_task;
         }
         // std::cout << "[" << rank << " worker] " << "TRIES to get latest\n";
         get_system_latest_iteration(task.ID, task.N, x_new);
@@ -241,9 +241,9 @@ void worker_process_run() {
             //std::cout << "[" << rank << " worker] " << "solved equation\n";
 
             // TODO: will move the frees to the corresponding destructor of task
-            // delete[] task->A_row;
-            // delete[] task->x;
-            // delete task;
+            delete[] task->A_row;
+            delete[] task->x;
+            delete task;
         } else {
             if (tag == SEND_SYSTEM_TASK) {
                 // std::cout << "[" << rank << " worker] " << "got system to solve\n";
@@ -261,12 +261,12 @@ void worker_process_run() {
                 // std::cout << "[" << rank << " worker] " << "solved system\n";
 
                 // TODO: will move the frees to the corresponding destructor of task
-                // for (int i = 0; i < task.N; i++)
-                //     delete[] task.A[i];
+                for (int i = 0; i < task.N; i++)
+                    delete[] task.A[i];
 
-                // delete[] task.A;
-                // delete[] task.b;
-                // delete[] task.x;
+                delete[] task.A;
+                delete[] task.b;
+                delete[] task.x;
             } else {
                 //std::cout <<"[ERROR] got data where i shouldnt\n";
             }
@@ -445,7 +445,11 @@ int main(int argc, char** argv) {
         //     std::cout << '\n';
         // }
         // std::cout << '\n';
-
+        // for (int j = 0; j < systems[i]->N; j++) {
+        //     std::cout << systems[i]->b[j] << ' ';
+        // }
+        // std::cout << '\n';
+        
         // TODO remove break, this only generates one system
         // break;
     }
@@ -500,6 +504,10 @@ int main(int argc, char** argv) {
             handle_got_equation_result(status);
             worker_sent_equation_result = MPI_REQUEST_NULL;
         }
+    }
+
+    for (const auto& task : system_tasks_registry) {
+        delete task;
     }
     //std::cout << "[ROOT] finished work" << std::endl;
     MPI_Finalize();
