@@ -86,7 +86,6 @@ Equation_solver_task* read_equation_task(int N, int source, int ch) {
 
     MPI_Recv(&(task->b), 1, MPI_FLOAT, source, ch, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    // //std::cout << ">>>> SYSTEM_ID = " << task->system_ID << std::endl;
     return task;
 }
 
@@ -115,15 +114,6 @@ System_solver_task read_system_task(int N) {
 };
 
 float solve_equation_task(const Equation_solver_task *task) {
-    // //std::cout << "eq = \n A= ";
-    // for (int i = 0; i < task->N; i++)
-    //     //std::cout << task->A_row[i] << ' ';
-    // //std::cout << "\n b= " << task->b << "\nx = ";
-
-    // for (int i = 0; i < task->N; i++)
-    //     //std::cout << task->x[i] << ' ';
-    // //std::cout << "\n";
-
     float result = task->b;
 
     for (int j = 0; j < task->N; ++j) {
@@ -138,23 +128,18 @@ float solve_equation_task(const Equation_solver_task *task) {
 };
 
 void get_system_latest_iteration(int ID, int N, float* result) {
-    //std::cout << "before getting the latest" << N << '\n';
     MPI_Recv(result, N, MPI_FLOAT, RANK_ROOT, GET_SYSTEM_NEW_RESULTS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    //std::cout << "after getting the latest\n";
-
 }
 
 // TODO: workaround to not move the function upward, add definition in header file 
 void send_equation_task(int destination, Equation_solver_task *task, Channels ch);
 
 void solve_system_task(const System_solver_task &task) {
-    int max_iter = task.N * 10;
+    int max_iter = task.N * 100;
     int needed_iter = max_iter;
     float *x_new = new float[task.N];
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    //std::cout << "[" << rank << " worker] " << "started working on system\n";
-    
 
     for (int iter = 0; iter < max_iter; ++iter) {
         
@@ -168,14 +153,10 @@ void solve_system_task(const System_solver_task &task) {
             equation_task->A_row = task.A[i];
             equation_task->system_ID = task.ID;
 
-            // std::cout << "[" << rank << " worker] " << "before sending the task\n";
             send_equation_task(RANK_ROOT, equation_task, ADD_TASK_TO_POOL);
-            // std::cout << "[" << rank << " worker] " << "has sent a task\n";
             delete equation_task;
         }
-        // std::cout << "[" << rank << " worker] " << "TRIES to get latest\n";
         get_system_latest_iteration(task.ID, task.N, x_new);
-        // std::cout << "[" << rank << " worker] " << "got latest latest\n";
 
         memcpy(task.x, x_new, task.N * sizeof(float));
 
@@ -188,8 +169,6 @@ void solve_system_task(const System_solver_task &task) {
 };
 
 void send_equation_result(float result, int system_ID, int x_index) {
-    // if (system_ID)
-    // std::cout << "[=====] SEND equation result systemID = " << system_ID  << " x_index = " << x_index << " result = " << result << std::endl << std::endl;
     int dummy = -1;
     MPI_Send(&dummy, 1, MPI_INT, RANK_ROOT, SEND_EQUATION_SOLVED, MPI_COMM_WORLD);
 
@@ -202,8 +181,6 @@ void send_equation_result(float result, int system_ID, int x_index) {
 
 void send_system_result(System_solver_task task) {
     MPI_Send(&(task.ID), 1, MPI_INT, RANK_ROOT, SEND_SYSTEM_SOLVED, MPI_COMM_WORLD);
-
-    // MPI_Send(task.x, task.N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_SOLVED, MPI_COMM_WORLD);
 };
 
 void worker_process_run() {
@@ -224,13 +201,9 @@ void worker_process_run() {
             return;
         }
         if (op_result == Get_work_return::RETRY) {
-            // //std::cout << "[" << rank << " worker] " << "got a retry\n";
             continue;
         }
-        //std::cout << "here0?\n";
-
         MPI_Recv(&tag, 1, MPI_INT, RANK_ROOT, REQUEST_WORK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        //std::cout << "here1?\n";
 
         if (tag == SEND_EQUATION_TASK) {
             MPI_Recv(&N, 1, MPI_INT, RANK_ROOT, SEND_EQUATION_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -315,7 +288,7 @@ void send_system_task(int destination, System_solver_task *task, Channels ch) {
 
 }
 
-void handle_send_work(MPI_Status status, int &count_workers_closed) {
+bool handle_send_work(MPI_Status status, int &count_workers_closed) {
     int destination = status.MPI_SOURCE;
     // we prioritize the tasks that solve equations - solves the problem of starvation    
     if (!equation_tasks.empty()) {
@@ -327,7 +300,7 @@ void handle_send_work(MPI_Status status, int &count_workers_closed) {
         
         send_equation_task(destination, equation_tasks.front(), SEND_EQUATION_TASK);
         equation_tasks.pop();
-        return;
+        return true;
     }
     
     if (!system_tasks.empty()) {
@@ -340,23 +313,26 @@ void handle_send_work(MPI_Status status, int &count_workers_closed) {
 
         send_system_task(destination, system_tasks.front(), SEND_SYSTEM_TASK);
         system_tasks.front()->assigned_process_rank = destination;
+        
         system_tasks.pop();
-        return;
+        return true;
     }
 
     // TODO CHECK IF THERE IS NO WORK IN PROGRESS
     // TODO if work available return false
     if (!operations_finished()) {
+        return false;
         // //std::cout << "not all ops finished\n";
         int retry = Get_work_return::RETRY;
         MPI_Send(&retry, 1, MPI_INT, destination, REQUEST_WORK, MPI_COMM_WORLD);
 
-        return;
+        return true;
     }
 
     int close = Get_work_return::CLOSE;
     MPI_Send(&close, 1, MPI_INT, destination, REQUEST_WORK, MPI_COMM_WORLD);
     count_workers_closed++;
+    return true;
 }
 
 void send_updated_values_for_equation(int destination, float *data, int N) {
@@ -425,8 +401,6 @@ int main(int argc, char** argv) {
 
     if (world_rank != RANK_ROOT) {
         worker_process_run();
-        // std::cout << "[" << world_rank << " worker] finished work" << std::endl;
-
         MPI_Finalize();
         return 0;
     } 
@@ -449,7 +423,7 @@ int main(int argc, char** argv) {
         //     std::cout << systems[i]->b[j] << ' ';
         // }
         // std::cout << '\n';
-        
+        // simple_jacobi(systems[i], EPS);
         // TODO remove break, this only generates one system
         // break;
     }
@@ -468,11 +442,18 @@ int main(int argc, char** argv) {
     MPI_Status status;
     
     int count_workers_closed = 0;
-    while (count_workers_closed < (world_size - 1)) {
-        // std::cout << count_systems_solved << ' ' << count_systems_solved << std::endl;
+    bool have_worker_ready = false;
+    MPI_Status status_saved;
 
-        if (get_work_request == MPI_REQUEST_NULL)
-            MPI_Irecv(&dummy, 1, MPI_INT, MPI_ANY_SOURCE, REQUEST_WORK, MPI_COMM_WORLD, &get_work_request);
+    while (count_workers_closed < (world_size - 1)) {
+        if (have_worker_ready && operations_finished()) {
+            handle_send_work(status_saved, count_workers_closed);
+            have_worker_ready = false;
+        }
+
+        if (!have_worker_ready || operations_finished())
+            if (get_work_request == MPI_REQUEST_NULL)
+                MPI_Irecv(&dummy, 1, MPI_INT, MPI_ANY_SOURCE, REQUEST_WORK, MPI_COMM_WORLD, &get_work_request);
 
         if (add_task_to_pool == MPI_REQUEST_NULL)
             MPI_Irecv(&recv_equation_task_N, 1, MPI_INT, MPI_ANY_SOURCE, ADD_TASK_TO_POOL, MPI_COMM_WORLD, &add_task_to_pool);
@@ -484,9 +465,19 @@ int main(int argc, char** argv) {
             MPI_Irecv(&equation_solved_dummy, 1, MPI_INT, MPI_ANY_SOURCE, SEND_EQUATION_SOLVED, MPI_COMM_WORLD, &worker_sent_equation_result);
 
 
-        MPI_Test(&get_work_request, &operation_completed, &status);
-        if (operation_completed) {
-            handle_send_work(status, count_workers_closed);
+        if (!have_worker_ready || operations_finished()) {
+            MPI_Test(&get_work_request, &operation_completed, &status);
+            if (operation_completed) {
+                if (!handle_send_work(status, count_workers_closed)) {
+                    status_saved = status;
+                    have_worker_ready = true;
+                }
+            }
+        } else {
+            if (system_tasks.size() != 0 || equation_tasks.size() != 0) {
+                handle_send_work(status_saved, count_workers_closed);
+                have_worker_ready = false;
+            }
         }
 
         MPI_Test(&add_task_to_pool, &operation_completed, &status);
