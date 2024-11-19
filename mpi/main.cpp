@@ -7,11 +7,8 @@
 
 #define RANK_ROOT 0
 #define EPS 0.005
-struct Task {
-    
-};
 
-struct Equation_solver_task : Task {
+struct Equation_solver_task {
     float *A_row;
     float *x;
     float b;
@@ -19,9 +16,37 @@ struct Equation_solver_task : Task {
     int N;
     int x_index;
     int system_ID;
+
+    int dealloc_responsability = false;
+
+    Equation_solver_task(int N) {
+        this->N = N;
+        A_row = new float[N];
+        b = 0;
+        x = new float[N];
+        x_index = 0;
+        system_ID = 0;
+        dealloc_responsability = true;
+    }
+
+    Equation_solver_task(int N, int x_index, float b, float *x, float *A_row, int system_ID) {
+        this->N = N;
+        this->x_index = x_index;
+        this->b = b;
+        this->x = x;
+        this->A_row = A_row;
+        this->system_ID = system_ID;
+    }
+
+    ~Equation_solver_task() {
+        if (dealloc_responsability) {
+            delete[] A_row;
+            delete[] x;
+        }
+    }
 };
 
-struct System_solver_task : Task {
+struct System_solver_task {
     float **A;
     float *x;
     float *b;
@@ -31,18 +56,44 @@ struct System_solver_task : Task {
     bool solved = false;
     int equations_solved = 0;
     int assigned_process_rank = -1;
+    
+    bool dealloc_responsability = false;
 
     System_solver_task(float **A, float *x, float *b, int N, int ID) 
         : A(A), x(x), b(b), N(N), ID(ID) {
     };
+
+    System_solver_task(int N)
+    {
+        this->N = N;
+        A = new float*[N];
+        for (int i = 0; i < N; ++i) {
+            A[i] = new float[N];
+        }
+        b = new float[N];
+        x = new float[N];
+        ID = -1;
+        dealloc_responsability = true;
+    }
+
+    ~System_solver_task() 
+    {
+        if (dealloc_responsability) {
+            for (int i = 0; i < N; i++)
+                delete[] A[i];
+
+            delete[] A;
+            delete[] b;
+            delete[] x;
+        }
+    }
 };
 
 auto equation_tasks = std::queue<Equation_solver_task*>();
 auto system_tasks = std::queue<System_solver_task*>();
 auto system_tasks_registry = std::vector<System_solver_task*>();
 
-int world_size;
-int count_systems_solved = 0;
+long unsigned int count_systems_solved = 0;
 
 enum Channels {
     REQUEST_WORK = 1,
@@ -65,16 +116,9 @@ bool operations_finished() {
     return count_systems_solved == system_tasks_registry.size();
 }
 
-
 Equation_solver_task* read_equation_task(int N, int source, int ch) {
 
-    Equation_solver_task *task = new Equation_solver_task();
-    task->N = N;
-    task->A_row = new float[N];
-    task->b = 0;
-    task->x = new float[N];
-    task->x_index = 0;
-    task->system_ID = 0;
+    Equation_solver_task *task = new Equation_solver_task(N);
 
     MPI_Recv(&(task->system_ID), 1, MPI_INT, source, ch, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
@@ -89,26 +133,18 @@ Equation_solver_task* read_equation_task(int N, int source, int ch) {
     return task;
 }
 
-System_solver_task read_system_task(int N) {
-    float **A = new float*[N];
-    for (int i = 0; i < N; ++i) {
-        A[i] = new float[N];
-    }
-    float *b = new float[N];
-    float *x = new float[N];
-    int ID = -1;
+System_solver_task* read_system_task(int N) {
+    System_solver_task *task = new System_solver_task(N);
     
-    System_solver_task task(A, x, b, N, ID);
-    
-    MPI_Recv(&(task.ID), 1, MPI_INT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&(task->ID), 1, MPI_INT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     for (int i = 0; i < N; i++) {
-        MPI_Recv(task.A[i], N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(task->A[i], N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 
-    MPI_Recv(task.x, N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(task->x, N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-    MPI_Recv(task.b, N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(task->b, N, MPI_FLOAT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     return task;
 };
@@ -127,16 +163,14 @@ float solve_equation_task(const Equation_solver_task *task) {
     return result;
 };
 
-void get_system_latest_iteration(int ID, int N, float* result) {
+void get_system_latest_iteration(int N, float* result) {
     MPI_Recv(result, N, MPI_FLOAT, RANK_ROOT, GET_SYSTEM_NEW_RESULTS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 }
 
-// TODO: workaround to not move the function upward, add definition in header file 
 void send_equation_task(int destination, Equation_solver_task *task, Channels ch);
 
 void solve_system_task(const System_solver_task &task) {
     int max_iter = task.N * 100;
-    int needed_iter = max_iter;
     float *x_new = new float[task.N];
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -145,23 +179,16 @@ void solve_system_task(const System_solver_task &task) {
         
         double error = error_MSE(task.x, x_new, task.N);
         for (int i = 0; i < task.N; ++i) {
-            auto equation_task = new Equation_solver_task();
-            equation_task->N = task.N;
-            equation_task->x_index = i;
-            equation_task->b = task.b[i];
-            equation_task->x = task.x;
-            equation_task->A_row = task.A[i];
-            equation_task->system_ID = task.ID;
+            auto equation_task = new Equation_solver_task(task.N, i, task.b[i], task.x, task.A[i], task.ID);
 
             send_equation_task(RANK_ROOT, equation_task, ADD_TASK_TO_POOL);
             delete equation_task;
         }
-        get_system_latest_iteration(task.ID, task.N, x_new);
+        get_system_latest_iteration(task.N, x_new);
 
         memcpy(task.x, x_new, task.N * sizeof(float));
 
         if (error < EPS) {
-            needed_iter = iter;
             break;
         }
     }
@@ -186,7 +213,6 @@ void send_system_result(System_solver_task task) {
 void worker_process_run() {
     int N;
     int dummy;
-    MPI_Status status;
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     Channels tag;
@@ -207,41 +233,21 @@ void worker_process_run() {
 
         if (tag == SEND_EQUATION_TASK) {
             MPI_Recv(&N, 1, MPI_INT, RANK_ROOT, SEND_EQUATION_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            //std::cout << "here?\n";
+
             auto task = read_equation_task(N, RANK_ROOT, SEND_EQUATION_TASK);
             auto result = solve_equation_task(task);
             send_equation_result(result, task->system_ID, task->x_index);
-            //std::cout << "[" << rank << " worker] " << "solved equation\n";
 
             // TODO: will move the frees to the corresponding destructor of task
-            delete[] task->A_row;
-            delete[] task->x;
             delete task;
         } else {
             if (tag == SEND_SYSTEM_TASK) {
-                // std::cout << "[" << rank << " worker] " << "got system to solve\n";
-
                 MPI_Recv(&N, 1, MPI_INT, RANK_ROOT, SEND_SYSTEM_TASK, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
                 auto task = read_system_task(N);
-                // std::cout << "[" << rank << " worker] " << "BEFORE" << task.ID << "\n";
-                solve_system_task(task);
-                // std::cout << "[" << rank << " worker] " << "WANTS to send system solved\n";
-                
-                // std::cout << "[" << rank << " worker] " << "AFTER" << task.ID << "\n";
-                send_system_result(task);
+                solve_system_task(*task);
+                send_system_result(*task);
 
-                // std::cout << "[" << rank << " worker] " << "solved system\n";
-
-                // TODO: will move the frees to the corresponding destructor of task
-                for (int i = 0; i < task.N; i++)
-                    delete[] task.A[i];
-
-                delete[] task.A;
-                delete[] task.b;
-                delete[] task.x;
-            } else {
-                //std::cout <<"[ERROR] got data where i shouldnt\n";
             }
         }
     }
@@ -290,6 +296,7 @@ void send_system_task(int destination, System_solver_task *task, Channels ch) {
 
 bool handle_send_work(MPI_Status status, int &count_workers_closed) {
     int destination = status.MPI_SOURCE;
+
     // we prioritize the tasks that solve equations - solves the problem of starvation    
     if (!equation_tasks.empty()) {
         Get_work_return result = Get_work_return::SUCCESS;
@@ -304,7 +311,6 @@ bool handle_send_work(MPI_Status status, int &count_workers_closed) {
     }
     
     if (!system_tasks.empty()) {
-        // std::cout << "[ROOT] tries to send system task\n";
         Get_work_return result = Get_work_return::SUCCESS;
         MPI_Send(&result, 1, MPI_INT, destination, REQUEST_WORK, MPI_COMM_WORLD);
 
@@ -318,16 +324,8 @@ bool handle_send_work(MPI_Status status, int &count_workers_closed) {
         return true;
     }
 
-    // TODO CHECK IF THERE IS NO WORK IN PROGRESS
-    // TODO if work available return false
-    if (!operations_finished()) {
+    if (!operations_finished())
         return false;
-        // //std::cout << "not all ops finished\n";
-        int retry = Get_work_return::RETRY;
-        MPI_Send(&retry, 1, MPI_INT, destination, REQUEST_WORK, MPI_COMM_WORLD);
-
-        return true;
-    }
 
     int close = Get_work_return::CLOSE;
     MPI_Send(&close, 1, MPI_INT, destination, REQUEST_WORK, MPI_COMM_WORLD);
@@ -336,29 +334,23 @@ bool handle_send_work(MPI_Status status, int &count_workers_closed) {
 }
 
 void send_updated_values_for_equation(int destination, float *data, int N) {
-    //std::cout << "send_updated_values dest= " << destination << std::endl;
     MPI_Send(data, N, MPI_FLOAT, destination, GET_SYSTEM_NEW_RESULTS, MPI_COMM_WORLD);
 }
 
 
 void handle_got_equation_result(MPI_Status status) {
-    //systemID, x_index, result
     int x_index;
     float result;
     int system_ID;
-    // TODO remove the comment, is commented because we already got the sys id
+
     MPI_Recv(&system_ID, 1, MPI_INT, status.MPI_SOURCE, SEND_EQUATION_SOLVED, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     MPI_Recv(&x_index, 1, MPI_INT, status.MPI_SOURCE, SEND_EQUATION_SOLVED, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     
     MPI_Recv(&result, 1, MPI_FLOAT, status.MPI_SOURCE, SEND_EQUATION_SOLVED, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    // std::cout << "[Error]: got EQUATION result existent system ID " << system_ID << " x_index = " << x_index << " result = " << result<< "\n";
 
     for (const auto& task : system_tasks_registry) {
         if (task->ID == system_ID) {
-            if (task->solved) {
-                std::cout << "[ERROR] task already solved\n";
-            }
             task->x[x_index] = result;
             task->equations_solved++;
             if (task->equations_solved == task->N) {
@@ -366,14 +358,13 @@ void handle_got_equation_result(MPI_Status status) {
                 send_updated_values_for_equation(task->assigned_process_rank, task->x, task->N);
             }
 
-            //std::cout << "[ ROOT ] got equation result sys_ID = " << system_ID << " x_index = " << x_index << " result = " << result << std::endl;
             return;
         }
     }
 
 }
 
-void handle_got_system_result(MPI_Status status, int system_ID) {
+void handle_got_system_result(int system_ID) {
     for(const auto& task : system_tasks_registry) {
         if (task->ID == system_ID) {
             task->solved = true;
@@ -387,13 +378,12 @@ void handle_got_system_result(MPI_Status status, int system_ID) {
             return;
         }
     }
-
-    //std::cout << "[ERROR] got the result of a non valid system_id = " << system_ID << std::endl;
 }
 
 int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);;
 
+    int world_size;
     MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 
     int world_rank;
@@ -413,19 +403,6 @@ int main(int argc, char** argv) {
         auto task = new System_solver_task(systems[i]->A, systems[i]->x, systems[i]->b, systems[i]->N, i);
         system_tasks.push(task);
         system_tasks_registry.push_back(task);
-        // for (int m = 0; m < systems[i]->N; m++) {
-        //     for (int n = 0; n < systems[i]->N; n++)
-        //         std::cout << systems[i]->A[m][n] << ' ';
-        //     std::cout << '\n';
-        // }
-        // std::cout << '\n';
-        // for (int j = 0; j < systems[i]->N; j++) {
-        //     std::cout << systems[i]->b[j] << ' ';
-        // }
-        // std::cout << '\n';
-        // simple_jacobi(systems[i], EPS);
-        // TODO remove break, this only generates one system
-        // break;
     }
 
     MPI_Request get_work_request = MPI_REQUEST_NULL;
@@ -487,7 +464,7 @@ int main(int argc, char** argv) {
 
         MPI_Test(&worker_sent_system_result, &operation_completed, &status);
         if (operation_completed) {
-            handle_got_system_result(status, system_solved_index);
+            handle_got_system_result(system_solved_index);
         }
         
         MPI_Test(&worker_sent_equation_result, &operation_completed, &status);
@@ -500,7 +477,7 @@ int main(int argc, char** argv) {
     for (const auto& task : system_tasks_registry) {
         delete task;
     }
-    //std::cout << "[ROOT] finished work" << std::endl;
+
     MPI_Finalize();
     return 0;
 }
