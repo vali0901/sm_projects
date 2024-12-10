@@ -10,7 +10,7 @@ struct system {
     float *x;
     int N;
 
-    system(int N);
+    system(int N, bool fill = true);
     void print();
     ~system();
 
@@ -42,4 +42,4 @@ private:
     struct system **systems;
 };
 
-int simple_jacobi(struct system *sys, double tol);
+int simple_jacobi(struct system *sys, double tol = 1e-6);
