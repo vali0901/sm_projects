@@ -10,7 +10,7 @@ struct system {
     float *x;
     int N;
 
-    system(int N);
+    system(int N, bool fill = true);
     void print();
     ~system();
 

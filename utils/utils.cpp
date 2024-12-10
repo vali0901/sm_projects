@@ -1,14 +1,15 @@
 #include "utils.h"
 
 
-system::system(int N) : N(N) {
+system::system(int N, bool fill) : N(N) {
     A = new float*[N];
     for (int i = 0; i < N; ++i) {
         A[i] = new float[N];
     }
     b = new float[N];
     x = new float[N];
-    fill_data();
+    if(fill)
+        fill_data();
 }
 
 system::~system() {
