@@ -139,7 +139,7 @@ int simple_jacobi(struct system *sys, double tol) {
         double error = error_MSE(x, x_new, N);
         // double error = error_RIN(x, x_new, N);
 
-        memcpy(x, x_new, N * sizeof(int));
+        memcpy(x, x_new, N * sizeof(float));
 
         if (error < tol) {
             needed_iter = iter;
