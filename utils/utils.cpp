@@ -161,3 +161,20 @@ int simple_jacobi(struct system *sys, double tol) {
     delete[] x_new;
     return needed_iter;
 }
+
+bool system_solved(struct system *sys, double tol) {
+    float **A = sys->A;
+    float *b = sys->b;
+    float *x = sys->x;
+    int N = sys->N;
+
+    for (int i = 0; i < N; ++i) {
+        float sum = 0;
+        for (int j = 0; j < N; ++j)
+            sum += A[i][j] * x[j];
+        if (abs(sum - b[i]) > tol)
+            return false;
+    }
+
+    return true;
+}
