@@ -1,14 +1,15 @@
 #include "utils.h"
 
 
-system::system(int N) : N(N) {
+system::system(int N, bool fill) : N(N) {
     A = new float*[N];
     for (int i = 0; i < N; ++i) {
         A[i] = new float[N];
     }
     b = new float[N];
     x = new float[N];
-    fill_data();
+    if(fill)
+        fill_data();
 }
 
 system::~system() {
@@ -61,28 +62,38 @@ void system::fill_data() {
 
 input_gen::input_gen(int seed, input_type type) : seed(seed), type(type) {
     srand(seed);
+    int system_size = 0;
     switch (type) {
         case VERY_SMALL:
             no_systems = 1;
-            systems = new struct system*[1]{new struct system(10)};
+            system_size = 10;
+
             break;
         case SMALL_SMALL:
             no_systems = 100;
-            systems = new struct system*[100]{new struct system(100)};
+            system_size = 100;
+
             break;
         case SMALL_LARGE:
             no_systems = 100;
-            systems = new struct system*[100]{new struct system(1000)};
+            system_size = 1000;
+
             break;
         case LARGE_SMALL:
             no_systems = 1000;
-            systems = new struct system*[1000]{new struct system(100)};
+            system_size = 100;
+
             break;
         case LARGE_LARGE:
             no_systems = 1000;
-            systems = new struct system*[1000]{new struct system(1000)};
+            system_size = 1000;
+
             break;
     }
+
+    systems = new struct system*[no_systems];
+    for (int i = 0; i < no_systems; i++)
+        systems[i] = new struct system(system_size);
 }
 
 struct system **input_gen::get_input() {
@@ -149,4 +160,21 @@ int simple_jacobi(struct system *sys, double tol) {
 
     delete[] x_new;
     return needed_iter;
+}
+
+bool system_solved(struct system *sys, double tol) {
+    float **A = sys->A;
+    float *b = sys->b;
+    float *x = sys->x;
+    int N = sys->N;
+
+    for (int i = 0; i < N; ++i) {
+        float sum = 0;
+        for (int j = 0; j < N; ++j)
+            sum += A[i][j] * x[j];
+        if (abs(sum - b[i]) > tol)
+            return false;
+    }
+
+    return true;
 }
