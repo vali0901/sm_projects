@@ -42,4 +42,4 @@ private:
     struct system **systems;
 };
 
-int simple_jacobi(struct system *sys, double tol);
+int simple_jacobi(struct system *sys, double tol = 1e-6);
