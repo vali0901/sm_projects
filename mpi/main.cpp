@@ -1,7 +1,11 @@
 #include <mpi.h>
 #include <iostream>
 
-int NUMBERS = 10;
+#include "utils.h"
+#include "messages.h"
+#include "task_pool.h"
+#include "worker.h"
+
 
 int main(int argc, char** argv) {
     MPI_Init(&argc, &argv);
@@ -12,20 +16,19 @@ int main(int argc, char** argv) {
     int world_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-    int numbers_per_proc = NUMBERS / world_size;
-    int start = world_rank * numbers_per_proc + 1;
-    int end = start + numbers_per_proc;
-
-    int local_sum = 0;
-    for (int i = start; i < end; ++i) {
-        local_sum += i;
-    }
-
-    int global_sum = 0;
-    MPI_Reduce(&local_sum, &global_sum, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    if (world_rank == 0) {
-        std::cout << "Sum of the first 10 numbers is " << global_sum << std::endl;
+    if(world_rank == MASTER) {
+        struct input_gen input(0, input_type::VERY_SMALL);
+        struct system **systems = input.get_input();
+        TaskPool task_pool(input.no_systems, world_size - 1);
+        task_pool.load_jacobi_tasks(systems);
+        task_pool.loop();
+        for(int i = 0; i < input.no_systems; i++)
+            delete systems[i];
+        delete[] systems;
+    } else {
+        Worker worker(world_rank);
+        printf("Worker %d started\n", world_rank);
+        worker.loop();
     }
 
     MPI_Finalize();
