@@ -22,6 +22,11 @@ int main(int argc, char** argv) {
         TaskPool task_pool(input.no_systems, world_size - 1);
         task_pool.load_jacobi_tasks(systems);
         task_pool.loop();
+
+        #ifdef DEBUG
+        log_solution_correctness(systems, input.no_systems, "hybrid mpi openmp");
+        #endif
+
         for(int i = 0; i < input.no_systems; i++)
             delete systems[i];
         delete[] systems;

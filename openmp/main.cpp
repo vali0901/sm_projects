@@ -21,11 +21,9 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    for (int i = 0; i < input.no_systems; i++)
-        if (!system_solved(systems[i], 0.01)){
-            std::cout << "System " << i << " not solved\n";
-            systems[i]->print();
-        }
+    #ifdef DEBUG
+        log_solution_correctness(systems, input.no_systems, "openmp");
+    #endif
 
     for (int i = 0; i < input.no_systems; i++)
         delete systems[i];

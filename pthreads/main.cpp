@@ -1,8 +1,6 @@
 #include <iostream>
 #include <pthread.h>
-#include "../utils/utils.h"
-
-#define DEBUG 1
+#include "utils.h"
 
 pthread_mutex_t mutex;
 int N = 10;
@@ -49,16 +47,11 @@ int main() {
         pthread_join(threads[i], nullptr);
     }
 
-    #ifdef DEBUG
-    std::cout << "Below you should see if any system wasn't solve successfully\n";
-    for (int i = 0; i < count_systems; i++) {
-        struct system* sys = systems[i];
-        if (!system_solved(sys))
-            std::cout << "system " + i << "is not solved" << std::endl;
-    }
-    #endif
-
     pthread_mutex_destroy(&mutex);
+
+    #ifdef DEBUG
+        log_solution_correctness(systems, input.no_systems, "pthreads");
+    #endif
 
     return 0;
 }
