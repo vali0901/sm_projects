@@ -36,3 +36,8 @@ now each task is solved dividing equally the work between the threads
 computational power). For these implementation, the bag of tasks code
 remains the same (as the one from mpi implementation) but the worker's
 work() funcion is changed respectively.
+
+### MEMBERS
+- MINCA ECATERINA IOANA 341C3
+- MAZILU FLAVIUS ROMEO 341C3
+- BOBARU VALENTIN IONUT 341C3
