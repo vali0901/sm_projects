@@ -48,3 +48,7 @@ float error_RIN(float *x, float *y, int N);
 int simple_jacobi(struct system *sys, double tol = 1e-6);
 bool system_solved(struct system *sys, double tol = 0.1);
 float error_MSE(float *x, float *y, int N);
+
+void log_solution_correctness(struct system **systems, int N, std::string solver_name);
+
+#define DEBUG 1

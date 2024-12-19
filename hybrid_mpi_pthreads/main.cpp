@@ -23,11 +23,9 @@ int main(int argc, char** argv) {
         task_pool.load_jacobi_tasks(systems);
         task_pool.loop();
 
-        for(int i = 0; i < input.no_systems; i++)
-            if(!system_solved(systems[i])) {
-                printf("System %d not solved\n", i);
-                systems[i]->print();
-            }
+        #ifdef DEBUG
+        log_solution_correctness(systems, input.no_systems, "hybrid mpi pthreads");
+        #endif
 
         for(int i = 0; i < input.no_systems; i++)
             delete systems[i];

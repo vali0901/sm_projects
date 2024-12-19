@@ -178,3 +178,18 @@ bool system_solved(struct system *sys, double tol) {
 
     return true;
 }
+
+void log_solution_correctness(struct system **systems, int N, std::string solver_name) {
+    std::cout << "Solver: " << solver_name << '\n';
+    bool is_correct = true;
+    for (int i = 0; i < N; i++) {
+        struct system* sys = systems[i];
+        if (!system_solved(sys)) {
+            std::cout << "system " + i << "is not solved correctly" << std::endl;
+            is_correct = false;
+        }
+    }
+
+    if (is_correct)
+        std::cout << "Solved systems correctly\n\n";
+}
