@@ -1,4 +1,4 @@
-CXX = g++
+CXX = mpicxx
 CXXFLAGS = -Wall -Wextra -fopenmp
 LIBS = -lmpi
 INCLUDE = -I../utils
@@ -7,6 +7,8 @@ SRC = $(wildcard *.cpp ../utils/*.cpp)
 OBJ = $(SRC:.cpp=.o)
 TARGET = main
 
+NNODES = 4
+
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
@@ -14,6 +16,9 @@ $(TARGET): $(OBJ)
 
 %.o: %.cpp
 	$(CXX) $(INCLUDE) $(CXXFLAGS) -c $< -o $@
+
+run: $(TARGET)
+	mpiexec -n $(NNODES) $(TARGET)
 
 clean:
 	rm -f $(OBJ)
